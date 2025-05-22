@@ -1,0 +1,1714 @@
+    <script>
+        // Global state
+        let currentLanguage = 'en';
+        let resources = {};
+        let residents = JSON.parse(localStorage.getItem('lhd_residents') || '[]');
+        let currentResident = null;
+
+        // Sample data for demonstration
+        if (residents.length === 0) {
+            residents = [
+                {
+                    id: 'R001',
+                    firstName: 'John',
+                    lastName: 'Smith',
+                    dob: '1985-03-15',
+                    phone: '704-555-0123',
+                    hasId: 'no',
+                    hasSS: 'lost',
+                    hasBirthCert: 'need-copy',
+                    lastWorked: '6-12-months',
+                    workSkills: 'Construction, general labor',
+                    benefits: 'applied',
+                    prescribedMeds: 'yes',
+                    unprescribedMeds: 'no',
+                    alcoholConsumption: '1-2',
+                    medicalConditions: 'Diabetes, back injury',
+                    canShare: 'yes',
+                    canClean: 'yes',
+                    goals: 'Find permanent housing, get back to work',
+                    supportNeeded: 'Help with ID, job search',
+                    emergencyName: 'Mary Smith',
+                    emergencyPhone: '704-555-0456',
+                    emergencyRelationship: 'Sister',
+                    dateAdded: '2024-05-15'
+                }
+            ];
+            localStorage.setItem('lhd_residents', JSON.stringify(residents));
+        }
+
+        // Resident Portal Functions
+        function showIntakeForm() {
+            document.getElementById('login-section').classList.add('hidden');
+            document.getElementById('intake-section').classList.remove('hidden');
+        }
+
+        function showLoginForm() {
+            document.getElementById('intake-section').classList.add('hidden');
+            document.getElementById('login-section').classList.remove('hidden');
+        }
+
+        function handleLogin(event) {
+            event.preventDefault();
+            const id = document.getElementById('resident-id').value.toLowerCase();
+            const dob = document.getElementById('resident-dob').value;
+            
+            // Find resident
+            const resident = residents.find(r => 
+                r.id.toLowerCase() === id || 
+                r.lastName.toLowerCase() === id
+            );
+            
+            if (resident && resident.dob === dob) {
+                currentResident = resident;
+                showResidentDashboard();
+            } else {
+                alert('Resident not found. Please check your ID/name and date of birth, or complete the intake assessment if you\'re new.');
+            }
+        }
+
+        function handleIntake(event) {
+            event.preventDefault();
+            
+            // Generate resident ID
+            const newId = 'R' + String(residents.length + 1).padStart(3, '0');
+            
+            // Collect form data
+            const formData = new FormData(event.target);
+            const resident = {
+                id: newId,
+                firstName: document.getElementById('first-name').value,
+                lastName: document.getElementById('last-name').value,
+                dob: document.getElementById('dob').value,
+                phone: document.getElementById('phone').value,
+                hasId: formData.get('has-id'),
+                hasSS: formData.get('has-ss'),
+                hasBirthCert: formData.get('has-birth-cert'),
+                lastWorked: document.getElementById('last-worked').value,
+                workSkills: document.getElementById('work-skills').value,
+                benefits: formData.get('benefits'),
+                prescribedMeds: formData.get('prescribed-meds'),
+                unprescribedMeds: formData.get('unprescribed-meds'),
+                alcoholConsumption: document.getElementById('alcohol-consumption').value,
+                medicalConditions: document.getElementById('medical-conditions').value,
+                canShare: formData.get('can-share'),
+                canClean: formData.get('can-clean'),
+                goals: document.getElementById('goals').value,
+                supportNeeded: document.getElementById('support-needed').value,
+                emergencyName: document.getElementById('emergency-name').value,
+                emergencyPhone: document.getElementById('emergency-phone').value,
+                emergencyRelationship: document.getElementById('emergency-relationship').value,
+                dateAdded: new Date().toISOString().split('T')[0]
+            };
+            
+            // Save resident
+            residents.push(resident);
+            localStorage.setItem('lhd_residents', JSON.stringify(residents));
+            
+            currentResident = resident;
+            alert(`Welcome to LHD! Your resident ID is: ${newId}. Please write this down - you'll need it to log in.`);
+            showResidentDashboard();
+        }
+
+        function showResidentDashboard() {
+            document.getElementById('login-section').classList.add('hidden');
+            document.getElementById('intake-section').classList.add('hidden');
+            document.getElementById('resident-dashboard').style.display = 'block';
+            
+            // Populate dashboard
+            document.getElementById('resident-welcome-name').textContent = currentResident.firstName;
+            document.getElementById('resident-goals').textContent = currentResident.goals || 'No goals set yet.';
+            
+            // Generate next steps based on resident data
+            let nextSteps = [];
+            if (currentResident.hasId === 'no') nextSteps.push('• Get a state ID (we can help with this)');
+            if (currentResident.hasSS === 'lost') nextSteps.push('• Replace Social Security card');
+            if (currentResident.lastWorked !== 'currently-working') nextSteps.push('• Explore job opportunities');
+            if (currentResident.benefits === 'no') nextSteps.push('• Apply for eligible benefits');
+            
+            document.getElementById('resident-next-steps').innerHTML = nextSteps.length > 0 ? nextSteps.join('<br>') : 'Great job! Check back for new recommendations.';
+        }
+
+        function logoutResident() {
+            currentResident = null;
+            document.getElementById('resident-dashboard').style.display = 'none';
+            document.getElementById('login-section').classList.remove('hidden');
+            document.getElementById('resident-id').value = '';
+            document.getElementById('resident-dob').value = '';
+        }
+
+        function updateResidentInfo() {
+            alert('Update form would open here. Residents could modify their goals, contact info, etc.');
+        }
+
+        function viewMyProgress() {
+            alert('Progress tracking would show here - goals completed, services used, milestones reached.');
+        }
+
+        // Staff Dashboard Functions
+        function toggleStaffDashboard() {
+            const dashboard = document.getElementById('staff-dashboard');
+            if (dashboard.style.display === 'block') {
+                dashboard.style.display = 'none';
+            } else {
+                dashboard.style.display = 'block';
+                loadResidentList();
+            }
+        }
+
+        function loadResidentList() {
+            const container = document.getElementById('resident-list');
+            container.innerHTML = '';
+            
+            residents.forEach(resident => {
+                const card = document.createElement('div');
+                card.className = 'resident-card';
+                
+                // Identify priority needs
+                let priorities = [];
+                if (resident.hasId === 'no') priorities.push('Needs ID');
+                if (resident.lastWorked === 'over-2-years' || resident.lastWorked === 'never') priorities.push('Long-term unemployed');
+                if (resident.alcoholConsumption === 'more-than-10') priorities.push('High alcohol use');
+                if (resident.unprescribedMeds === 'yes') priorities.push('Substance use');
+                
+                card.innerHTML = `
+                    <div class="resident-name">${resident.firstName} ${resident.lastName} (ID: ${resident.id})</div>
+                    <div class="resident-info">
+                        <strong>Admitted:</strong> ${resident.dateAdded}<br>
+                        <strong>Age:</strong> ${calculateAge(resident.dob)} years old<br>
+                        <strong>Priority Needs:</strong> ${priorities.length > 0 ? priorities.join(', ') : 'None identified'}<br>
+                        <strong>Goals:</strong> ${resident.goals || 'Not specified'}
+                    </div>
+                    <button class="view-details-btn" onclick="viewResidentDetails('${resident.id}')">View Full Details</button>
+                `;
+                
+                container.appendChild(card);
+            });
+        }
+
+        function calculateAge(dob) {
+            const today = new Date();
+            const birthDate = new Date(dob);
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const monthDiff = today.getMonth() - birthDate.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+            }
+            return age;
+        }
+
+        function viewResidentDetails(residentId) {
+            const resident = residents.find(r => r.id === residentId);
+            if (!resident) return;
+            
+            const modalContent = document.getElementById('modal-content');
+            modalContent.innerHTML = `
+                <h2>${resident.firstName} ${resident.lastName} - Full Assessment</h2>
+                
+                <div class="assessment-section">
+                    <div class="assessment-title">Basic Information</div>
+                    <p><strong>Resident ID:</strong> ${resident.id}</p>
+                    <p><strong>Date of Birth:</strong> ${resident.dob} (Age: ${calculateAge(resident.dob)})</p>
+                    <p><strong>Phone:</strong> ${resident.phone || 'Not provided'}</p>
+                    <p><strong>Date Admitted:</strong> ${resident.dateAdded}</p>
+                </div>
+                
+                <div class="assessment-section">
+                    <div class="assessment-title">Documentation Status</div>
+                    <p><strong>Photo ID:</strong> ${formatStatus(resident.hasId)}</p>
+                    <p><strong>Social Security Card:</strong> ${formatStatus(resident.hasSS)}</p>
+                    <p><strong>Birth Certificate:</strong> ${formatStatus(resident.hasBirthCert)}</p>
+                </div>
+                
+                <div class="assessment-section">
+                    <div class="assessment-title">Employment & Benefits</div>
+                    <p><strong>Last Worked:</strong> ${formatWorkHistory(resident.lastWorked)}</p>
+                    <p><strong>Work Skills:</strong> ${resident.workSkills || 'Not specified'}</p>
+                    <p><strong>Government Benefits:</strong> ${formatStatus(resident.benefits)}</p>
+                </div>
+                
+                <div class="assessment-section">
+                    <div class="assessment-title">Health & Wellness</div>
+                    <p><strong>Prescribed Medications:</strong> ${resident.prescribedMeds === 'yes' ? 'Yes' : 'No'}</p>
+                    <p><strong>Unprescribed Substances:</strong> ${formatSubstanceUse(resident.unprescribedMeds)}</p>
+                    <p><strong>Daily Alcohol Consumption:</strong> ${formatAlcoholUse(resident.alcoholConsumption)}</p>
+                    <p><strong>Medical Conditions:</strong> ${resident.medicalConditions || 'None reported'}</p>
+                </div>
+                
+                <div class="assessment-section">
+                    <div class="assessment-title">Life Skills & Social</div>
+                    <p><strong>Can Share Living Space:</strong> ${formatLifeSkill(resident.canShare)}</p>
+                    <p><strong>Can Help with Cleaning:</strong> ${formatLifeSkill(resident.canClean)}</p>
+                </div>
+                
+                <div class="assessment-section">
+                    <div class="assessment-title">Goals & Support Needs</div>
+                    <p><strong>Personal Goals:</strong> ${resident.goals || 'Not specified'}</p>
+                    <p><strong>Support Needed:</strong> ${resident.supportNeeded || 'Not specified'}</p>
+                </div>
+                
+                <div class="assessment-section">
+                    <div class="assessment-title">Emergency Contact</div>
+                    <p><strong>Name:</strong> ${resident.emergencyName || 'Not provided'}</p>
+                    <p><strong>Phone:</strong> ${resident.emergencyPhone || 'Not provided'}</p>
+                    <p><strong>Relationship:</strong> ${resident.emergencyRelationship || 'Not specified'}</p>
+                </div>
+                
+                <div class="assessment-section">
+                    <div class="assessment-title">Risk Assessment & Recommendations</div>
+                    ${generateRiskAssessment(resident)}
+                </div>
+                
+                <button class="submit-btn" onclick="closeModal()">Close</button>
+            `;
+            
+            document.getElementById('resident-modal').style.display = 'block';
+        }
+
+        function formatStatus(status) {
+            const statusMap = {
+                'yes': '✅ Yes',
+                'no': '❌ No',
+                'expired': '⚠️ Expired',
+                'lost': '⚠️ Lost/Need replacement',
+                'need-copy': '⚠️ Need certified copy',
+                'applied': '⏳ Applied/waiting'
+            };
+            return statusMap[status] || status;
+        }
+
+        function formatWorkHistory(lastWorked) {
+            const workMap = {
+                'currently-working': '✅ Currently working',
+                'within-month': 'Within the last month',
+                '1-3-months': '1-3 months ago',
+                '3-6-months': '3-6 months ago',
+                '6-12-months': '⚠️ 6-12 months ago',
+                '1-2-years': '⚠️ 1-2 years ago',
+                'over-2-years': '🚨 Over 2 years ago',
+                'never': '🚨 Never worked'
+            };
+            return workMap[lastWorked] || lastWorked;
+        }
+
+        function formatSubstanceUse(use) {
+            const useMap = {
+                'yes': '🚨 Yes - needs assessment',
+                'no': '✅ No',
+                'prefer-not-to-say': '⚠️ Declined to answer'
+            };
+            return useMap[use] || use;
+        }
+
+        function formatAlcoholUse(consumption) {
+            const consumptionMap = {
+                'none': '✅ None',
+                '1-2': '✅ 1-2 drinks',
+                '3-5': '⚠️ 3-5 drinks (moderate risk)',
+                '6-10': '🚨 6-10 drinks (high risk)',
+                'more-than-10': '🚨 More than 10 drinks (very high risk)',
+                'prefer-not-to-say': '⚠️ Declined to answer'
+            };
+            return consumptionMap[consumption] || consumption;
+        }
+
+        function formatLifeSkill(skill) {
+            const skillMap = {
+                'yes': '✅ Yes, no concerns',
+                'sometimes': '⚠️ Sometimes has difficulties',
+                'need-help': '🚨 Needs help/training',
+                'limited': '⚠️ Limited ability'
+            };
+            return skillMap[skill] || skill;
+        }
+
+        function generateRiskAssessment(resident) {
+            let risks = [];
+            let recommendations = [];
+            
+            // High-priority risks
+            if (resident.alcoholConsumption === 'more-than-10' || resident.alcoholConsumption === '6-10') {
+                risks.push('🚨 HIGH: Alcohol use disorder risk');
+                recommendations.push('• Immediate referral to substance abuse counselor');
+                recommendations.push('• Consider medical evaluation for withdrawal risks');
+            }
+            
+            if (resident.unprescribedMeds === 'yes') {
+                risks.push('🚨 HIGH: Unprescribed substance use');
+                recommendations.push('• Substance abuse assessment needed');
+                recommendations.push('• Harm reduction resources');
+            }
+            
+            if (resident.lastWorked === 'over-2-years' || resident.lastWorked === 'never') {
+                risks.push('⚠️ MEDIUM: Long-term unemployment');
+                recommendations.push('• Job readiness assessment');
+                recommendations.push('• Skills training referral');
+            }
+            
+            if (resident.hasId === 'no') {
+                risks.push('⚠️ MEDIUM: No identification documents');
+                recommendations.push('• Priority ID assistance');
+                recommendations.push('• Help with document gathering');
+            }
+            
+            if (resident.canShare === 'need-help' || resident.canClean === 'need-training') {
+                risks.push('⚠️ MEDIUM: Life skills support needed');
+                recommendations.push('• Life skills training program');
+                recommendations.push('• Peer mentorship');
+            }
+            
+            // Protective factors
+            let strengths = [];
+            if (resident.canShare === 'yes') strengths.push('• Good social skills for communal living');
+            if (resident.canClean === 'yes') strengths.push('• Able to maintain living space');
+            if (resident.emergencyName) strengths.push('• Has emergency contact/support system');
+            if (resident.goals && resident.goals.trim()) strengths.push('• Has clear personal goals');
+            
+            let assessment = '<div style="margin-bottom: 1rem;"><strong>Risk Factors:</strong><br>';
+            if (risks.length > 0) {
+                assessment += risks.join('<br>');
+            } else {
+                assessment += '✅ No significant risk factors identified';
+            }
+            assessment += '</div>';
+            
+            assessment += '<div style="margin-bottom: 1rem;"><strong>Recommended Actions:</strong><br>';
+            if (recommendations.length > 0) {
+                assessment += recommendations.join('<br>');
+            } else {
+                assessment += '• Continue regular check-ins<br>• Support with stated goals';
+            }
+            assessment += '</div>';
+            
+            assessment += '<div><strong>Strengths & Protective Factors:</strong><br>';
+            if (strengths.length > 0) {
+                assessment += strengths.join('<br>');
+            } else {
+                assessment += '• Assessment needed to identify strengths';
+            }
+            assessment += '</div>';
+            
+            return assessment;
+        }
+
+        function closeModal() {
+            document.getElementById('resident-modal').style.display = 'none';
+        }
+
+        function generateReport() {
+            const totalResidents = residents.length;
+            const needId = residents.filter(r => r.hasId === 'no').length;
+            const unemployed = residents.filter(r => r.lastWorked === 'over-2-years' || r.lastWorked === 'never').length;
+            const highAlcohol = residents.filter(r => r.alcoholConsumption === 'more-than-10' || r.alcoholConsumption === '6-10').length;
+            const substanceUse = residents.filter(r => r.unprescribedMeds === 'yes').length;
+            
+            const report = `
+📊 LHD RESIDENT SUMMARY REPORT
+Generated: ${new Date().toLocaleDateString()}
+
+TOTAL RESIDENTS: ${totalResidents}
+
+DOCUMENTATION NEEDS:
+• ${needId} residents need photo ID (${Math.round(needId/totalResidents*100)}%)
+• ${residents.filter(r => r.hasSS === 'lost' || r.hasSS === 'no').length} need Social Security card
+
+EMPLOYMENT STATUS:
+• ${unemployed} long-term unemployed (${Math.round(unemployed/totalResidents*100)}%)
+• ${residents.filter(r => r.lastWorked === 'currently-working').length} currently working
+
+HEALTH & WELLNESS CONCERNS:
+• ${highAlcohol} with high alcohol consumption (${Math.round(highAlcohol/totalResidents*100)}%)
+• ${substanceUse} reported unprescribed substance use (${Math.round(substanceUse/totalResidents*100)}%)
+• ${residents.filter(r => r.prescribedMeds === 'yes').length} taking prescribed medications
+
+LIFE SKILLS:
+• ${residents.filter(r => r.canShare === 'yes').length} good at sharing living space
+• ${residents.filter(r => r.canClean === 'yes').length} able to help with cleaning
+
+PRIORITY RECOMMENDATIONS:
+1. ID assistance program for ${needId} residents
+2. Substance abuse counseling for ${highAlcohol + substanceUse} residents
+3. Job training/placement for ${unemployed} residents
+            `;
+            
+            alert(report);
+        }
+
+        function exportData() {
+            const csvData = residents.map(r => ({
+                ID: r.id,
+                Name: `${r.firstName} ${r.lastName}`,
+                Age: calculateAge(r.dob),
+                HasID: r.hasId,
+                LastWorked: r.lastWorked,
+                AlcoholUse: r.alcoholConsumption,
+                Goals: r.goals,
+                DateAdded: r.dateAdded
+            }));
+            
+            alert('In a real system, this would export resident data as CSV/Excel file for reporting and analysis.');
+        }<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Charlotte Resource Hub - Find Help Now</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8f9fa;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+
+        .emergency-banner {
+            background: #e74c3c;
+            color: white;
+            padding: 0.75rem;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .emergency-banner a {
+            color: white;
+            text-decoration: underline;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .action-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .action-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            border-color: #3498db;
+        }
+
+        .action-card.urgent {
+            border-left: 4px solid #e74c3c;
+        }
+
+        .action-card.food {
+            border-left: 4px solid #27ae60;
+        }
+
+        .action-card.shelter {
+            border-left: 4px solid #8e44ad;
+        }
+
+        .action-card.documents {
+            border-left: 4px solid #f39c12;
+        }
+
+        .action-card.transport {
+            border-left: 4px solid #2980b9;
+        }
+
+        .card-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: #3498db;
+        }
+
+        .card-title {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            color: #2c3e50;
+        }
+
+        .card-description {
+            color: #666;
+            margin-bottom: 1rem;
+            line-height: 1.5;
+        }
+
+        .card-status {
+            font-weight: bold;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+        }
+
+        .status-open {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-limited {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-info {
+            background: #cce7ff;
+            color: #004085;
+        }
+
+        .map-section {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .map-placeholder {
+            height: 400px;
+            background: #e9ecef;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            font-size: 1.1rem;
+            border: 2px dashed #ccc;
+        }
+
+        .chatbot-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .chatbot-toggle {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .chatbot-toggle:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+        }
+
+        .chatbot-window {
+            position: absolute;
+            bottom: 80px;
+            right: 0;
+            width: 350px;
+            height: 500px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chatbot-header {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            padding: 1rem;
+            font-weight: bold;
+        }
+
+        .chatbot-messages {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 1rem;
+            padding: 0.8rem;
+            border-radius: 10px;
+            max-width: 80%;
+        }
+
+        .message.bot {
+            background: #e3f2fd;
+            align-self: flex-start;
+        }
+
+        .message.user {
+            background: #3498db;
+            color: white;
+            align-self: flex-end;
+            margin-left: auto;
+        }
+
+        .chatbot-input {
+            display: flex;
+            padding: 1rem;
+            background: white;
+            border-top: 1px solid #eee;
+        }
+
+        .chatbot-input input {
+            flex: 1;
+            padding: 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            outline: none;
+        }
+
+        .chatbot-input button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 0.8rem 1rem;
+            margin-left: 0.5rem;
+            border-radius: 25px;
+            cursor: pointer;
+        }
+
+        .language-toggle {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .admin-panel {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border-top: 4px solid #9b59b6;
+        }
+
+        .admin-toggle {
+            background: #9b59b6;
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 1rem;
+        }
+
+        .admin-content {
+            display: none;
+        }
+
+        .admin-form {
+            display: grid;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .admin-form input, .admin-form select, .admin-form textarea {
+            padding: 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        .admin-form button {
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .quick-actions {
+                grid-template-columns: 1fr;
+            }
+            
+            .chatbot-window {
+                width: 300px;
+                height: 400px;
+            }
+            
+            .container {
+                padding: 0.5rem;
+            }
+        }
+
+        .resource-list {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .resource-item {
+            border-bottom: 1px solid #eee;
+            padding: 1rem 0;
+        }
+
+        .resource-item:last-child {
+            border-bottom: none;
+        }
+
+        .resource-name {
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+
+        .resource-details {
+            color: #666;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .directions-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .footer {
+            background: #2c3e50;
+            color: white;
+            text-align: center;
+            padding: 2rem;
+            margin-top: 3rem;
+        }
+
+        .footer a {
+            color: #3498db;
+            text-decoration: none;
+        }
+
+        .github-note {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .resident-portal {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border-top: 4px solid #e74c3c;
+        }
+
+        .login-form, .intake-form {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            font-weight: normal;
+            cursor: pointer;
+        }
+
+        .radio-group input {
+            width: auto;
+            margin-right: 0.5rem;
+        }
+
+        .submit-btn {
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            width: 100%;
+            margin-top: 1rem;
+        }
+
+        .submit-btn:hover {
+            background: #229954;
+        }
+
+        .resident-dashboard {
+            display: none;
+        }
+
+        .dashboard-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .welcome-msg {
+            font-size: 1.3rem;
+            color: #2c3e50;
+        }
+
+        .logout-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .progress-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            border-left: 4px solid #3498db;
+        }
+
+        .progress-title {
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+
+        .staff-dashboard {
+            display: none;
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border-top: 4px solid #8e44ad;
+        }
+
+        .resident-list {
+            display: grid;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .resident-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1rem;
+            border-left: 4px solid #3498db;
+        }
+
+        .resident-name {
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .resident-info {
+            color: #666;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .view-details-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 2% auto;
+            padding: 2rem;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .close:hover {
+            color: black;
+        }
+
+        .assessment-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .assessment-title {
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 0.5rem;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="emergency-banner">
+        🚨 Emergency? Call 911 | Crisis Line: 988 | Charlotte Crisis: <a href="tel:704-332-6852">704-332-6852</a>
+    </div>
+
+    <!-- Resident Details Modal -->
+    <div id="resident-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <div id="modal-content">
+                <!-- Resident details will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <header class="header">
+        <button class="language-toggle" onclick="toggleLanguage()">Español</button>
+        <h1>Charlotte Resource Hub</h1>
+        <p>Find help near you - food, shelter, clothing, documents, and transportation</p>
+    </header>
+
+    <div class="container">
+        <!-- Resident Portal -->
+        <div class="resident-portal">
+            <h2>🏠 LHD Resident Portal</h2>
+            
+            <!-- Login Form -->
+            <div id="login-section">
+                <p style="margin-bottom: 1.5rem; color: #666;">Current LHD residents: Log in to access your personalized dashboard and update your information.</p>
+                
+                <form class="login-form" onsubmit="handleLogin(event)">
+                    <div class="form-group">
+                        <label for="resident-id">Resident ID or Last Name:</label>
+                        <input type="text" id="resident-id" required placeholder="Enter your ID or last name">
+                    </div>
+                    <div class="form-group">
+                        <label for="resident-dob">Date of Birth:</label>
+                        <input type="date" id="resident-dob" required>
+                    </div>
+                    <button type="submit" class="submit-btn">Log In</button>
+                </form>
+                
+                <p style="margin-top: 1rem; text-align: center;">
+                    <strong>New resident?</strong> 
+                    <a href="#" onclick="showIntakeForm()" style="color: #3498db;">Complete intake assessment</a>
+                </p>
+            </div>
+
+            <!-- Intake Form for New Residents -->
+            <div id="intake-section" class="hidden">
+                <h3>New Resident Intake Assessment</h3>
+                <p style="margin-bottom: 1.5rem; color: #666;">This information helps us provide the best support for your needs. All information is confidential.</p>
+                
+                <form class="intake-form" onsubmit="handleIntake(event)">
+                    <!-- Basic Information -->
+                    <div class="assessment-section">
+                        <div class="assessment-title">Basic Information</div>
+                        
+                        <div class="form-group">
+                            <label for="first-name">First Name:</label>
+                            <input type="text" id="first-name" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="last-name">Last Name:</label>
+                            <input type="text" id="last-name" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="dob">Date of Birth:</label>
+                            <input type="date" id="dob" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="phone">Phone Number (if available):</label>
+                            <input type="tel" id="phone" placeholder="(704) 555-0123">
+                        </div>
+                    </div>
+                    
+                    <!-- Documentation Status -->
+                    <div class="assessment-section">
+                        <div class="assessment-title">Documentation & ID</div>
+                        
+                        <div class="form-group">
+                            <label>Do you have a valid photo ID?</label>
+                            <div class="radio-group">
+                                <label><input type="radio" name="has-id" value="yes"> Yes</label>
+                                <label><input type="radio" name="has-id" value="no"> No</label>
+                                <label><input type="radio" name="has-id" value="expired"> Expired</label>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Do you have a Social Security card?</label>
+                            <div class="radio-group">
+                                <label><input type="radio" name="has-ss" value="yes"> Yes</label>
+                                <label><input type="radio" name="has-ss" value="no"> No</label>
+                                <label><input type="radio" name="has-ss" value="lost"> Lost/Need replacement</label>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Do you have a birth certificate?</label>
+                            <div class="radio-group">
+                                <label><input type="radio" name="has-birth-cert" value="yes"> Yes</label>
+                                <label><input type="radio" name="has-birth-cert" value="no"> No</label>
+                                <label><input type="radio" name="has-birth-cert" value="need-copy"> Need certified copy</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Employment History -->
+                    <div class="assessment-section">
+                        <div class="assessment-title">Employment & Income</div>
+                        
+                        <div class="form-group">
+                            <label for="last-worked">When did you last work?</label>
+                            <select id="last-worked" required>
+                                <option value="">Select timeframe</option>
+                                <option value="currently-working">Currently working</option>
+                                <option value="within-month">Within the last month</option>
+                                <option value="1-3-months">1-3 months ago</option>
+                                <option value="3-6-months">3-6 months ago</option>
+                                <option value="6-12-months">6-12 months ago</option>
+                                <option value="1-2-years">1-2 years ago</option>
+                                <option value="over-2-years">Over 2 years ago</option>
+                                <option value="never">Never worked</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="work-skills">What kind of work experience do you have? (Check all that apply)</label>
+                            <textarea id="work-skills" rows="3" placeholder="e.g., retail, food service, construction, cleaning, office work, etc."></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Do you receive any government benefits?</label>
+                            <div class="radio-group">
+                                <label><input type="radio" name="benefits" value="yes"> Yes</label>
+                                <label><input type="radio" name="benefits" value="no"> No</label>
+                                <label><input type="radio" name="benefits" value="applied"> Applied/waiting</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Health & Wellness -->
+                    <div class="assessment-section">
+                        <div class="assessment-title">Health & Wellness</div>
+                        
+                        <div class="form-group">
+                            <label>Are you currently taking any prescribed medications?</label>
+                            <div class="radio-group">
+                                <label><input type="radio" name="prescribed-meds" value="yes"> Yes</label>
+                                <label><input type="radio" name="prescribed-meds" value="no"> No</label>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Are you taking any unprescribed medications or substances?</label>
+                            <div class="radio-group">
+                                <label><input type="radio" name="unprescribed-meds" value="yes"> Yes</label>
+                                <label><input type="radio" name="unprescribed-meds" value="no"> No</label>
+                                <label><input type="radio" name="unprescribed-meds" value="prefer-not-to-say"> Prefer not to say</label>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="alcohol-consumption">On average, how many alcoholic drinks do you have per day?</label>
+                            <select id="alcohol-consumption" required>
+                                <option value="">Select amount</option>
+                                <option value="none">None</option>
+                                <option value="1-2">1-2 drinks</option>
+                                <option value="3-5">3-5 drinks</option>
+                                <option value="6-10">6-10 drinks</option>
+                                <option value="more-than-10">More than 10 drinks</option>
+                                <option value="prefer-not-to-say">Prefer not to say</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Do you have any medical conditions that affect your daily life?</label>
+                            <textarea id="medical-conditions" rows="2" placeholder="Optional - helps us understand your needs"></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- Life Skills & Goals -->
+                    <div class="assessment-section">
+                        <div class="assessment-title">Life Skills & Goals</div>
+                        
+                        <div class="form-group">
+                            <label>Can you share living space respectfully with others?</label>
+                            <div class="radio-group">
+                                <label><input type="radio" name="can-share" value="yes"> Yes, no problem</label>
+                                <label><input type="radio" name="can-share" value="sometimes"> Sometimes have difficulties</label>
+                                <label><input type="radio" name="can-share" value="need-help"> Need help with this</label>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Can you help with cleaning and maintaining shared spaces?</label>
+                            <div class="radio-group">
+                                <label><input type="radio" name="can-clean" value="yes"> Yes, willing and able</label>
+                                <label><input type="radio" name="can-clean" value="limited"> Limited ability</label>
+                                <label><input type="radio" name="can-clean" value="need-training"> Need training/help</label>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>What are your main goals while staying with us?</label>
+                            <textarea id="goals" rows="3" placeholder="e.g., find permanent housing, get a job, get sober, get medical care, etc."></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>What kind of support would be most helpful?</label>
+                            <textarea id="support-needed" rows="3" placeholder="e.g., job search help, transportation, medical care, counseling, etc."></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- Emergency Contact -->
+                    <div class="assessment-section">
+                        <div class="assessment-title">Emergency Contact (Optional)</div>
+                        
+                        <div class="form-group">
+                            <label for="emergency-name">Emergency Contact Name:</label>
+                            <input type="text" id="emergency-name" placeholder="Optional">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="emergency-phone">Emergency Contact Phone:</label>
+                            <input type="tel" id="emergency-phone" placeholder="Optional">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="emergency-relationship">Relationship to you:</label>
+                            <input type="text" id="emergency-relationship" placeholder="e.g., family member, friend">
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="submit-btn">Complete Assessment</button>
+                </form>
+                
+                <p style="margin-top: 1rem; text-align: center;">
+                    <a href="#" onclick="showLoginForm()" style="color: #3498db;">← Back to login</a>
+                </p>
+            </div>
+
+            <!-- Resident Dashboard -->
+            <div id="resident-dashboard" class="resident-dashboard">
+                <div class="dashboard-header">
+                    <div class="welcome-msg">Welcome back, <span id="resident-welcome-name"></span>!</div>
+                    <button class="logout-btn" onclick="logoutResident()">Log Out</button>
+                </div>
+                
+                <div class="progress-card">
+                    <div class="progress-title">Your Current Goals</div>
+                    <div id="resident-goals">Loading your goals...</div>
+                </div>
+                
+                <div class="progress-card">
+                    <div class="progress-title">Next Steps</div>
+                    <div id="resident-next-steps">Loading recommendations...</div>
+                </div>
+                
+                <div class="progress-card">
+                    <div class="progress-title">Quick Actions</div>
+                    <button class="view-details-btn" onclick="updateResidentInfo()">Update My Information</button>
+                    <button class="view-details-btn" onclick="viewMyProgress()" style="margin-left: 1rem;">View Full Progress</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Staff Dashboard -->
+        <div class="staff-dashboard" id="staff-dashboard">
+            <h2>📊 Staff Dashboard - Resident Management</h2>
+            <p style="margin-bottom: 1.5rem;">View and manage resident information, track progress, and generate reports.</p>
+            
+            <div style="margin-bottom: 2rem;">
+                <button class="admin-toggle" onclick="generateReport()">📈 Generate Summary Report</button>
+                <button class="admin-toggle" onclick="exportData()" style="margin-left: 1rem;">📄 Export Data</button>
+            </div>
+            
+            <div class="resident-list" id="resident-list">
+                <!-- Resident cards will be populated here -->
+            </div>
+        </div>
+
+        <div class="quick-actions">
+            <div class="action-card food urgent" onclick="showSection('food')">
+                <div class="card-icon">🍽️</div>
+                <div class="card-title">Food & Meals</div>
+                <div class="card-description">Free meals, food pantries, and soup kitchens open right now</div>
+                <div class="card-status status-open">12 locations open now</div>
+            </div>
+
+            <div class="action-card shelter urgent" onclick="showSection('shelter')">
+                <div class="card-icon">🏠</div>
+                <div class="card-title">Shelter & Sleep</div>
+                <div class="card-description">Safe places to sleep, emergency shelters, and overnight programs</div>
+                <div class="card-status status-limited">3 beds available</div>
+            </div>
+
+            <div class="action-card food" onclick="showSection('clothing')">
+                <div class="card-icon">👕</div>
+                <div class="card-title">Clothing & Items</div>
+                <div class="card-description">Free clothes, shoes, blankets, and personal items</div>
+                <div class="card-status status-open">8 locations open</div>
+            </div>
+
+            <div class="action-card documents" onclick="showSection('documents')">
+                <div class="card-icon">📄</div>
+                <div class="card-title">Get Your ID</div>
+                <div class="card-description">Step-by-step help getting ID, birth certificate, Social Security card</div>
+                <div class="card-status status-info">DMV open today</div>
+            </div>
+
+            <div class="action-card transport" onclick="showSection('transport')">
+                <div class="card-icon">🚌</div>
+                <div class="card-title">Transportation</div>
+                <div class="card-description">Real-time bus routes, directions, and how to get around</div>
+                <div class="card-status status-open">Live bus times</div>
+            </div>
+
+            <div class="action-card" onclick="showSection('other')">
+                <div class="card-icon">🤝</div>
+                <div class="card-title">Other Help</div>
+                <div class="card-description">Job centers, health clinics, legal aid, and more services</div>
+                <div class="card-status status-info">View all services</div>
+            </div>
+        </div>
+
+        <div class="map-section">
+            <h2>Find Help Near You</h2>
+            <div class="map-placeholder">
+                <div style="text-align: center;">
+                    <i class="fas fa-map-marker-alt" style="font-size: 3rem; color: #3498db; margin-bottom: 1rem;"></i>
+                    <p>Interactive map showing all resources near your location</p>
+                    <p style="font-size: 0.9rem; color: #888; margin-top: 0.5rem;">Click "Allow Location" to see what's closest to you</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resource sections (hidden by default) -->
+        <div id="food-section" class="resource-list" style="display: none;">
+            <h2>🍽️ Food & Meals Available Now</h2>
+            <div class="resource-item">
+                <div class="resource-name">Loaves & Fishes - Main Kitchen</div>
+                <div class="resource-details">
+                    <strong>Open until 7:00 PM today</strong><br>
+                    Free hot dinner, no questions asked<br>
+                    1524 N Davidson St, Charlotte, NC<br>
+                    <button class="directions-btn" onclick="getDirections('1524 N Davidson St')">Get Directions</button>
+                </div>
+            </div>
+            <div class="resource-item">
+                <div class="resource-name">Second Harvest Food Bank</div>
+                <div class="resource-details">
+                    <strong>Open 9 AM - 4 PM today</strong><br>
+                    Food pantry, bring ID if you have one<br>
+                    500 Spratt St, Charlotte, NC<br>
+                    <button class="directions-btn" onclick="getDirections('500 Spratt St')">Get Directions</button>
+                </div>
+            </div>
+            <div class="resource-item">
+                <div class="resource-name">Salvation Army - Center of Hope</div>
+                <div class="resource-details">
+                    <strong>Breakfast 6-8 AM, Lunch 11-1 PM daily</strong><br>
+                    Free meals, also has shower facilities<br>
+                    534 Spratt St, Charlotte, NC<br>
+                    <button class="directions-btn" onclick="getDirections('534 Spratt St')">Get Directions</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="shelter-section" class="resource-list" style="display: none;">
+            <h2>🏠 Shelter & Safe Places</h2>
+            <div class="resource-item">
+                <div class="resource-name">Men's Shelter of Charlotte</div>
+                <div class="resource-details">
+                    <strong>3 beds available tonight</strong><br>
+                    Check-in: 6:30 PM daily<br>
+                    1210 N Tryon St, Charlotte, NC<br>
+                    Call first: (704) 334-3187<br>
+                    <button class="directions-btn" onclick="getDirections('1210 N Tryon St')">Get Directions</button>
+                </div>
+            </div>
+            <div class="resource-item">
+                <div class="resource-name">Urban Ministry Center</div>
+                <div class="resource-details">
+                    <strong>Day shelter open 7 AM - 5 PM</strong><br>
+                    Rest, bathrooms, mail services<br>
+                    945 N College St, Charlotte, NC<br>
+                    <button class="directions-btn" onclick="getDirections('945 N College St')">Get Directions</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="documents-section" class="resource-list" style="display: none;">
+            <h2>📄 Getting Your ID & Documents</h2>
+            <div class="resource-item">
+                <div class="resource-name">NC DMV - Charlotte East</div>
+                <div class="resource-details">
+                    <strong>Open 8 AM - 5 PM today</strong><br>
+                    Get NC ID card ($13) or driver's license<br>
+                    What to bring: Birth certificate + Social Security card + 2 proofs of address<br>
+                    8304 E Independence Blvd, Charlotte, NC<br>
+                    <button class="directions-btn" onclick="getDirections('8304 E Independence Blvd')">Get Directions</button>
+                </div>
+            </div>
+            <div class="resource-item">
+                <div class="resource-name">Social Security Office</div>
+                <div class="resource-details">
+                    <strong>Open 9 AM - 4 PM, Mon-Fri</strong><br>
+                    Replace Social Security card (free)<br>
+                    Bring photo ID or other documents<br>
+                    8530 Cliff Cameron Dr, Charlotte, NC<br>
+                    <button class="directions-btn" onclick="getDirections('8530 Cliff Cameron Dr')">Get Directions</button>
+                </div>
+            </div>
+            <div class="resource-item">
+                <div class="resource-name">Mecklenburg County Vital Records</div>
+                <div class="resource-details">
+                    <strong>Open 8 AM - 5 PM, Mon-Fri</strong><br>
+                    Birth certificates ($24)<br>
+                    Need ID or someone who can verify your identity<br>
+                    700 N Tryon St, Charlotte, NC<br>
+                    <button class="directions-btn" onclick="getDirections('700 N Tryon St')">Get Directions</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Panel -->
+        <div class="admin-panel">
+            <button class="admin-toggle" onclick="toggleAdmin()">Staff: Update Resources</button>
+            <button class="admin-toggle" onclick="toggleStaffDashboard()" style="margin-left: 1rem;">👥 Resident Management</button>
+            <div id="admin-content" class="admin-content">
+                <h3>Add/Update Resource</h3>
+                <form class="admin-form" onsubmit="addResource(event)">
+                    <select id="resource-type" required>
+                        <option value="">Select Resource Type</option>
+                        <option value="food">Food & Meals</option>
+                        <option value="shelter">Shelter & Sleep</option>
+                        <option value="clothing">Clothing & Items</option>
+                        <option value="documents">Documents & ID</option>
+                        <option value="transport">Transportation</option>
+                        <option value="other">Other Services</option>
+                    </select>
+                    <input type="text" id="resource-name" placeholder="Resource Name" required>
+                    <textarea id="resource-description" placeholder="Description (hours, services, requirements)" rows="3" required></textarea>
+                    <input type="text" id="resource-address" placeholder="Address" required>
+                    <input type="text" id="resource-phone" placeholder="Phone Number">
+                    <select id="resource-status">
+                        <option value="open">Open Now</option>
+                        <option value="limited">Limited Availability</option>
+                        <option value="closed">Closed</option>
+                    </select>
+                    <button type="submit">Add/Update Resource</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chatbot -->
+    <div class="chatbot-container">
+        <button class="chatbot-toggle" onclick="toggleChatbot()">
+            <i class="fas fa-comments"></i>
+        </button>
+        <div class="chatbot-window" id="chatbot-window">
+            <div class="chatbot-header">
+                Ask Me Anything - I'm Here to Help!
+            </div>
+            <div class="chatbot-messages" id="chatbot-messages">
+                <div class="message bot">
+                    Hi! I can help you find food, shelter, clothing, or tell you how to get documents like an ID. What do you need help with?
+                </div>
+            </div>
+            <div class="chatbot-input">
+                <input type="text" id="chatbot-input" placeholder="Ask me anything..." onkeypress="handleChatEnter(event)">
+                <button onclick="sendMessage()">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p><strong>Charlotte Resource Hub</strong> - Built with ❤️ for our community</p>
+        <p>This is a prototype. <a href="mailto:contact@example.com">Contact us</a> to add your organization's services.</p>
+        <p style="font-size: 0.8rem; margin-top: 1rem;">Hosted free on GitHub Pages | Source code available on <a href="https://github.com">GitHub</a></p>
+    </footer>
+
+    <script>
+        // Global state
+        let currentLanguage = 'en';
+        let resources = {};
+
+        // Language toggle
+        function toggleLanguage() {
+            currentLanguage = currentLanguage === 'en' ? 'es' : 'en';
+            document.querySelector('.language-toggle').textContent = currentLanguage === 'en' ? 'Español' : 'English';
+            updateLanguage();
+        }
+
+        function updateLanguage() {
+            // This would update all text content based on language
+            // For demo purposes, we'll just show an alert
+            if (currentLanguage === 'es') {
+                alert('Idioma cambiado a español. En una aplicación real, todo el contenido se traduciría automáticamente.');
+            }
+        }
+
+        // Show specific resource sections
+        function showSection(section) {
+            // Hide all sections
+            document.querySelectorAll('.resource-list').forEach(el => el.style.display = 'none');
+            
+            // Show selected section
+            const sectionElement = document.getElementById(section + '-section');
+            if (sectionElement) {
+                sectionElement.style.display = 'block';
+                sectionElement.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        // Directions
+        function getDirections(address) {
+            // In a real app, this would integrate with Google Maps or similar
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    const mapsUrl = `https://www.google.com/maps/dir/${position.coords.latitude},${position.coords.longitude}/${encodeURIComponent(address + ', Charlotte, NC')}`;
+                    window.open(mapsUrl, '_blank');
+                });
+            } else {
+                const mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(address + ', Charlotte, NC')}`;
+                window.open(mapsUrl, '_blank');
+            }
+        }
+
+        // Chatbot functionality
+        function toggleChatbot() {
+            const chatbot = document.getElementById('chatbot-window');
+            if (chatbot.style.display === 'flex') {
+                chatbot.style.display = 'none';
+            } else {
+                chatbot.style.display = 'flex';
+                document.getElementById('chatbot-input').focus();
+            }
+        }
+
+        function handleChatEnter(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('chatbot-input');
+            const message = input.value.trim();
+            if (!message) return;
+
+            // Add user message
+            addChatMessage(message, 'user');
+            input.value = '';
+
+            // Generate bot response
+            setTimeout(() => {
+                const response = generateBotResponse(message);
+                addChatMessage(response, 'bot');
+            }, 1000);
+        }
+
+        function addChatMessage(message, sender) {
+            const messagesContainer = document.getElementById('chatbot-messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            messageDiv.textContent = message;
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function generateBotResponse(userMessage) {
+            const message = userMessage.toLowerCase();
+            
+            if (message.includes('food') || message.includes('eat') || message.includes('hungry') || message.includes('meal')) {
+                return "I can help you find food! Loaves & Fishes has free hot dinner until 7 PM today at 1524 N Davidson St. Second Harvest Food Bank is open until 4 PM at 500 Spratt St. Would you like directions to either place?";
+            }
+            
+            if (message.includes('shelter') || message.includes('sleep') || message.includes('bed') || message.includes('place to stay')) {
+                return "For shelter, the Men's Shelter of Charlotte has 3 beds available tonight. Check-in is at 6:30 PM at 1210 N Tryon St. Call them first at (704) 334-3187. The Urban Ministry Center is also open as a day shelter from 7 AM to 5 PM.";
+            }
+            
+            if (message.includes('id') || message.includes('identification') || message.includes('birth certificate') || message.includes('social security') || message.includes('dmv')) {
+                return "To get an ID, go to the NC DMV at 8304 E Independence Blvd (open 8 AM-5 PM). You'll need a birth certificate ($24 from Vital Records at 700 N Tryon St) and Social Security card (free replacement at 8530 Cliff Cameron Dr). The ID costs $13.";
+            }
+            
+            if (message.includes('clothes') || message.includes('clothing') || message.includes('shirt') || message.includes('pants')) {
+                return "There are 8 clothing locations open today. The Salvation Army at 534 Spratt St has free clothes and also serves meals. Many churches also have clothing closets - would you like me to help you find one near you?";
+            }
+            
+            if (message.includes('bus') || message.includes('transportation') || message.includes('get to') || message.includes('directions')) {
+                return "I can help with transportation! Charlotte has CATS buses throughout the city. A day pass is $4.40. Tell me where you're trying to get to and I'll help you find the right bus route and times.";
+            }
+            
+            if (message.includes('job') || message.includes('work') || message.includes('employment')) {
+                return "For job help, try NCWorks Career Center or Goodwill Career Solutions. Many places are hiring and some don't require experience. I can help you find job training programs too.";
+            }
+            
+            if (message.includes('thank') || message.includes('thanks')) {
+                return "You're welcome! I'm here whenever you need help. Stay safe out there, and remember - there are people who want to help you.";
+            }
+            
+            return "I'm here to help you find food, shelter, clothing, help with getting an ID, transportation, or other services in Charlotte. Can you tell me more specifically what you need help with?";
+        }
+
+        // Admin functionality
+        function toggleAdmin() {
+            const adminContent = document.getElementById('admin-content');
+            if (adminContent.style.display === 'block') {
+                adminContent.style.display = 'none';
+            } else {
+                adminContent.style.display = 'block';
+            }
+        }
+
+        function addResource(event) {
+            event.preventDefault();
+            
+            const type = document.getElementById('resource-type').value;
+            const name = document.getElementById('resource-name').value;
+            const description = document.getElementById('resource-description').value;
+            const address = document.getElementById('resource-address').value;
+            const phone = document.getElementById('resource-phone').value;
+            const status = document.getElementById('resource-status').value;
+            
+            // In a real app, this would save to a database
+            alert(`Resource "${name}" has been added to the ${type} category. In a real app, this would be saved to the database and immediately available to users.`);
+            
+            // Reset form
+            event.target.reset();
+        }
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            // Request location permission for better directions
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    console.log('Location access granted');
+                }, function(error) {
+                    console.log('Location access denied');
+                });
+            }
+        });
+    </script>
+</body>
+</html>
